@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "auto-download-image",
+	"name": "Auto Download Image",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+	"description": "自动检测并下载笔记中的网络图片到本地并重命名",
+	"author": "fzy-yy",
+	"authorUrl": "https://github.com/fzy-yy",
+	"fundingUrl": "https://github.com/fzy-yy",
+	"isDesktopOnly": true
 }
