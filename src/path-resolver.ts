@@ -101,11 +101,13 @@ export class PathResolver {
 		try {
 			// 获取 Obsidian 配置中的附件文件夹路径
 			// 使用类型断言访问 config 属性
-			const vaultConfig = (this.vault as unknown as {
-				config?: {
-					attachmentFolderPath?: string;
-				};
-			}).config;
+			const vaultConfig = (
+				this.vault as unknown as {
+					config?: {
+						attachmentFolderPath?: string;
+					};
+				}
+			).config;
 			const attachmentFolderPath = vaultConfig?.attachmentFolderPath;
 
 			// 检查附件文件夹路径是否存在
@@ -144,7 +146,8 @@ export class PathResolver {
 			await this.vault.createFolder(folderPath);
 		} catch (error) {
 			// 检查错误信息中是否包含"already exists"
-			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
 			// 如果错误信息中包含"already exists"，说明文件夹已存在（可能是并发创建导致的），直接返回
 			if (errorMessage.includes("already exists")) {
 				console.debug("文件夹已存在（并发创建），继续处理");

@@ -60,18 +60,8 @@ export class NamingFormatter {
 		// 替换占位符为实际值
 		let fileName = format
 			.replace(/{notename}/g, this.getNoteName(noteFile)) // 替换 {notename} 为笔记名称
-			.replace(/{notebasename}/g, this.getNoteBasename(noteFile)) // 替换 {notebasename} 为笔记基础名称
 			.replace(/{date}/g, this.getFormattedDate(now)) // 替换 {date} 为日期
-			.replace(/{time}/g, this.getFormattedTime(now)) // 替换 {time} 为时间
-			.replace(/{datetime}/g, this.getFormattedDateTime(now)) // 替换 {datetime} 为日期时间
-			.replace(/{timestamp}/g, now.getTime().toString()) // 替换 {timestamp} 为时间戳
-			.replace(/{year}/g, now.getFullYear().toString()) // 替换 {year} 为年份
-			.replace(/{month}/g, this.getPaddedMonth(now)) // 替换 {month} 为月份
-			.replace(/{day}/g, this.getPaddedDay(now)) // 替换 {day} 为日期
-			.replace(/{hour}/g, this.getPaddedHour(now)) // 替换 {hour} 为小时
-			.replace(/{minute}/g, this.getPaddedMinute(now)) // 替换 {minute} 为分钟
-			.replace(/{second}/g, this.getPaddedSecond(now)) // 替换 {second} 为秒
-			.replace(/{random}/g, this.getRandomString(10)); // 替换 {random} 为随机字符串
+			.replace(/{time}/g, this.getFormattedTime(now)); // 替换 {time} 为时间
 
 		// 清理文件名中的非法字符
 		fileName = fileName.replace(/[<>:"/\\|?*]/g, "_");
@@ -84,14 +74,6 @@ export class NamingFormatter {
 	// 参数: noteFile - 笔记文件对象
 	// 返回值: string - 笔记名称
 	private static getNoteName(noteFile: TFile): string {
-		// 返回不含扩展名的文件名
-		return noteFile.basename;
-	}
-
-	// 获取笔记基础名称的方法（与 getNoteName 相同，提供别名）
-	// 参数: noteFile - 笔记文件对象
-	// 返回值: string - 笔记基础名称
-	private static getNoteBasename(noteFile: TFile): string {
 		// 返回不含扩展名的文件名
 		return noteFile.basename;
 	}
@@ -110,14 +92,6 @@ export class NamingFormatter {
 	private static getFormattedTime(date: Date): string {
 		// 返回 HH-MM-SS 格式的时间
 		return `${this.getPaddedHour(date)}-${this.getPaddedMinute(date)}-${this.getPaddedSecond(date)}`;
-	}
-
-	// 获取格式化日期时间的方法（YYYY-MM-DD_HH-MM-SS）
-	// 参数: date - 日期对象
-	// 返回值: string - 格式化的日期时间字符串
-	private static getFormattedDateTime(date: Date): string {
-		// 返回 YYYY-MM-DD_HH-MM-SS 格式的日期时间
-		return `${this.getFormattedDate(date)}_${this.getFormattedTime(date)}`;
 	}
 
 	// 获取补零月份的方法（01-12）
@@ -165,6 +139,8 @@ export class NamingFormatter {
 	// 返回值: string - 随机字符串
 	private static getRandomString(length: number): string {
 		// 生成指定长度的随机字符串（使用 36 进制）
-		return Math.random().toString(36).substring(2, 2 + length);
+		return Math.random()
+			.toString(36)
+			.substring(2, 2 + length);
 	}
 }

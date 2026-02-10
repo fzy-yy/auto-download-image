@@ -1,11 +1,5 @@
 // 导入 Obsidian 核心类型和类
-import {
-	Editor,
-	MarkdownView,
-	Notice,
-	Plugin,
-	TFile,
-} from "obsidian";
+import { Editor, MarkdownView, Notice, Plugin, TFile } from "obsidian";
 // 导入设置相关的类型和类
 import { AutoDownloadImageSettingTab } from "./settings";
 // 导入类型定义
@@ -291,7 +285,8 @@ export default class AutoDownloadImagePlugin extends Plugin {
 			const fileName = `${baseFileName}.${ext}`;
 
 			// 使用路径解析器解析图片保存路径
-			const folderPath = await this.pathResolver.resolveFolderPath(noteFile);
+			const folderPath =
+				await this.pathResolver.resolveFolderPath(noteFile);
 
 			// 确保目标文件夹存在
 			await this.pathResolver.ensureFolderExists(folderPath);
@@ -312,7 +307,8 @@ export default class AutoDownloadImagePlugin extends Plugin {
 			return linkPath;
 		} catch (error) {
 			// 捕获并记录下载或保存过程中的错误
-			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
 			console.error(`下载图片失败: ${url}`, error);
 			// 如果错误信息中包含"already exists"，说明文件夹已存在，可以忽略
 			if (errorMessage.includes("already exists")) {
