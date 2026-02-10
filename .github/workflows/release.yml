@@ -1,0 +1,181 @@
+# 发布工作流
+# 此工作流用于自动发布新版本的插件到 GitHub Releases
+# 仅在 Lint 工作流成功完成后，且代码推送到 main 分支时触发
+name: Release
+
+# 触发条件
+on:
+  # 在 Lint 工作流成功完成后触发
+  workflow_run:
+    workflows: ["Lint"]
+    types: [completed]
+    branches: ["main"]
+  # 允许手动触发
+  workflow_dispatch:
+
+# 权限设置
+permissions:
+  contents: write # 需要写入权限来创建 GitHub Release
+
+jobs:
+  # 发布任务
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    # 仅在 Lint 工作流成功时运行
+    if: |
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      # 检出代码
+      # 获取完整历史记录以便生成发布说明
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整的 git 历史记录
+
+      # 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # 安装依赖
+      - name: Install dependencies
+        run: npm ci
+
+      # 构建项目
+      # 生成 main.js 文件
+      - name: Build project
+        run: npm run build
+
+      # 读取当前版本号
+      # 从 manifest.json 中读取版本信息
+      - name: Read current version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      # 检查该版本是否已经发布
+      # 如果已发布，则跳过发布流程
+      - name: Check if release exists
+        id: check_release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/releases/tags/v${VERSION}")
+          echo "status_code=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "Release check status: $RESPONSE"
+
+      # 仅当版本未发布时创建新的 Release
+      - name: Create GitHub Release
+        if: steps.check_release.outputs.status_code != '200'
+        id: create_release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Creating release for version: $VERSION"
+
+          # 获取上一个版本标签（用于生成变更日志）
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # 生成变更日志
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "Generating changelog from $PREVIOUS_TAG to HEAD"
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+          else
+            echo "No previous tag found, showing all commits"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse)
+          fi
+
+          # 获取最新提交信息
+          LATEST_COMMIT=$(git log -1 --pretty=format:"%h - %s (%an)")
+
+          # 创建临时的发布说明文件
+          cat > release_notes.md << 'EOF'
+          # Release Notes
+
+          ## Version Information
+          - **Version**: ${VERSION}
+          - **Release Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ## Latest Changes
+          ${LATEST_COMMIT}
+
+          ## Change Log
+          ${CHANGELOG}
+
+          ## Installation
+
+          1. Download the following files:
+             - `main.js`
+             - `manifest.json`
+             - `styles.css`
+
+          2. Copy these files to your Obsidian vault's plugin directory:
+             ```
+             .obsidian/plugins/auto-download-image/
+             ```
+
+          3. Enable the plugin in Obsidian Settings > Community Plugins
+
+          ## Features
+
+          - Automatically detect and download network images in markdown notes
+          - Support custom save locations (note folder, vault folder, or Obsidian attachment folder)
+          - Support custom naming formats with placeholders
+          - Support absolute and relative path options
+          - Multi-language support (Chinese/English)
+          - Confirmation dialog before processing
+          - Comprehensive error handling and notifications
+          EOF
+
+          # 替换变量
+          sed -i "s/\${VERSION}/$VERSION/g" release_notes.md
+          sed -i "s/\${LATEST_COMMIT}/$LATEST_COMMIT/g" release_notes.md
+          sed -i "s/\${CHANGELOG}/$CHANGELOG/g" release_notes.md
+
+          # 读取发布说明
+          RELEASE_BODY=$(cat release_notes.md)
+          echo "release_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 上传文件到 GitHub Release
+      # 使用 softprops/action-gh-release 创建 Release 并上传文件
+      - name: Upload Release Assets
+        if: steps.check_release.outputs.status_code != '200'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: ${{ steps.create_release.outputs.release_body }}
+          files: |
+            main.js
+            manifest.json
+            styles.css
+          draft: false
+          prerelease: false
+          generate_release_notes: false # 使用我们自定义的发布说明
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 输出发布结果
+      - name: Release result
+        if: steps.check_release.outputs.status_code != '200'
+        run: |
+          echo "✅ Release v${{ steps.version.outputs.version }} created successfully!"
+          echo "📦 Release URL: ${{ steps.create_release.outputs.url }}"
+      - name: Skip release message
+        if: steps.check_release.outputs.status_code == '200'
+        run: |
+          echo "⏭️ Release v${{ steps.version.outputs.version }} already exists, skipping..."

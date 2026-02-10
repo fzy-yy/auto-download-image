@@ -1,6 +1,9 @@
 # 代码质量检查工作流
-name: Code Quality Check
+# 此工作流用于在代码提交时进行 ESLint 检查
+# 检查通过后会自动触发发布工作流（如果需要）
+name: Lint
 
+# 触发条件
 on:
   push:
     branches: ["**"]
@@ -10,50 +13,36 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ESLint 检查任务
   lint:
     name: ESLint Check
     runs-on: ubuntu-latest
 
     steps:
       # 检出代码
+      # 使用最新版本的 actions/checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
       # 设置 Node.js 环境
+      # 使用 Node.js 20.x 版本
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
+          cache: "npm"  # 缓存 npm 依赖以加速构建
 
       # 安装依赖
+      # 使用 npm ci 确保安装的依赖与 package-lock.json 一致
       - name: Install dependencies
         run: npm ci
 
-      # 运行 ESLint
+      # 运行 ESLint 检查
+      # 如果检查失败，工作流会失败并阻止后续流程
       - name: Run ESLint
         run: npm run lint
 
-  type-check:
-    name: TypeScript Type Check
-    runs-on: ubuntu-latest
-
-    steps:
-      # 检出代码
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # 设置 Node.js 环境
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      # 安装依赖
-      - name: Install dependencies
-        run: npm ci
-
       # 运行 TypeScript 类型检查
+      # 确保代码没有类型错误
       - name: Run TypeScript type check
         run: npx tsc --noEmit
