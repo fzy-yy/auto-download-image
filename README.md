@@ -1,25 +1,26 @@
 # Auto Download Image
 
-[![CI/CD](https://github.com/fzy-yy/auto-download-image/workflows/CI/CD/badge.svg)](https://github.com/fzy-yy/auto-download-image/actions)
-[![Code Quality Check](https://github.com/fzy-yy/auto-download-image/workflows/Code%20Quality%20Check/badge.svg)](https://github.com/fzy-yy/auto-download-image/actions)
 [![License](https://img.shields.io/github/license/fzy-yy/auto-download-image)](LICENSE)
 
-一个用于 Obsidian 的插件，自动检测笔记中的网络图片，下载到本地并使用自定义格式重命名，然后替换为本地相对路径。
+一个用于 Obsidian 的插件，自动检测当前笔记中的网络图片，下载到本地并使用自定义格式重命名，然后替换为本地相对路径。
+
+![show](./show.gif)
+
+⚠️ 声明：本项目 80% 代码由AI生成，即使已经通过多轮测试和审查，仍可能存在未知Bug以及与其他插件的兼容问题，因此在使用本插件之前请务必备份笔记库，如您使用本插件，即表示自愿承担所有风险。
+
+⚠️ 本项目不接受任何PR，后续可能不考虑更新，如果有其他需求，请下载源码自行开发，[AGENTS](./AGENTS.md)文件中记录了项目结构以及项目文件中类和函数说明。
 
 ## ✨ 功能特性
 
 - 🔍 **自动检测**：自动识别 Markdown 格式的网络图片链接 `![](https://...)` 和 `![](http://...)`
-- 📥 **批量下载**：一键下载所有网络图片到本地
+- 📥 **批量下载**：一键下载当前笔记中的网络图片到本地，并将图片命名为 笔记名称+日期时间 的格式
 - 📁 **灵活的保存位置**：
-  - 保存在笔记同级目录下的文件夹（可自定义文件夹名）
+  - 保存在笔记同级目录下的文件夹
   - 保存在库根目录下的指定文件夹
   - 与 Obsidian 附件文件夹保持一致
-- 🏷️ **自定义命名**：支持占位符重命名图片（`{notename}`, `{date}`, `{time}`）
-- 🔗 **路径类型选择**：支持绝对路径和相对路径（便于笔记库迁移）
-- 🛡️ **防反爬机制**：设置请求头，避免被网站拦截
-- ⏱️ **下载间隔**：每张图片设置下载间隔，避免频繁请求
-- 🌍 **多语言支持**：根据 Obsidian 语言设置自动切换中文/英文界面
-- ✅ **完善的错误处理**：详细的错误日志和用户友好的提示
+- 🔗 **路径类型选择**：支持绝对路径和相对路径
+- ⌚ **下载间隔**：为防止请求过多，图片下载时间间隔已设置为1.5秒
+- ⚠️ **限制**：当前仅支持一次对一篇笔记（当前打开的笔记）中的图片进行下载，不支持多篇笔记
 
 ## 📦 安装方法
 
@@ -80,7 +81,7 @@
 
 ### 3. 图片命名格式
 
-自定义图片的命名格式，支持以下占位符：
+自定义图片的命名格式，仅支持以下占位符：
 
 - `{notename}` - 笔记名称（不含扩展名）
 - `{date}` - 日期（YYYY-MM-DD 格式）

@@ -85,15 +85,6 @@ jobs:
           # 获取上一个版本标签（用于生成变更日志）
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          # 生成变更日志
-          if [ -n "$PREVIOUS_TAG" ]; then
-            echo "Generating changelog from $PREVIOUS_TAG to HEAD"
-            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
-          else
-            echo "No previous tag found, showing all commits"
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse)
-          fi
-
           # 获取最新提交信息
           LATEST_COMMIT=$(git log -1 --pretty=format:"%h - %s (%an)")
 
@@ -111,9 +102,6 @@ jobs:
           ## Latest Changes
           $LATEST_COMMIT
 
-          ## Change Log
-          $CHANGELOG
-
           ## Installation
 
           1. Download the following files:
@@ -125,16 +113,6 @@ jobs:
              .obsidian/plugins/auto-download-image/
 
           3. Enable the plugin in Obsidian Settings > Community Plugins
-
-          ## Features
-
-          - Automatically detect and download network images in markdown notes
-          - Support custom save locations (note folder, vault folder, or Obsidian attachment folder)
-          - Support custom naming formats with placeholders
-          - Support absolute and relative path options
-          - Multi-language support (Chinese/English)
-          - Confirmation dialog before processing
-          - Comprehensive error handling and notifications
           EOF
 
           # 读取发布说明

@@ -30,7 +30,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"  # 缓存 npm 依赖以加速构建
+          cache: "npm" # 缓存 npm 依赖以加速构建
 
       # 安装依赖
       # 使用 npm ci 确保安装的依赖与 package-lock.json 一致
