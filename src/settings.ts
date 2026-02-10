@@ -16,7 +16,7 @@ import {
 	ImageSaveLocationType,
 } from "./naming-formatter";
 // 导入工具函数
-import { ImageUtils } from "./utils";
+import { Validator } from "./validator";
 
 // 语言类型定义
 type Language = "zh" | "en";
@@ -224,7 +224,7 @@ export class AutoDownloadImageSettingTab extends PluginSettingTab {
 							// 添加值变化事件监听器
 							// 清理和验证文件夹名称，移除非法字符
 							const cleanedName =
-								ImageUtils.sanitizeFolderName(value);
+								Validator.sanitizeFolderName(value);
 							// 更新插件设置中的文件夹名称
 							this.plugin.settings.noteFolderName = cleanedName;
 							// 更新路径解析器，使设置立即生效
@@ -255,7 +255,7 @@ export class AutoDownloadImageSettingTab extends PluginSettingTab {
 							// 添加值变化事件监听器
 							// 清理和验证文件夹名称，移除非法字符
 							const cleanedName =
-								ImageUtils.sanitizeFolderName(value);
+								Validator.sanitizeFolderName(value);
 							// 更新插件设置中的文件夹名称
 							this.plugin.settings.vaultFolderName = cleanedName;
 							// 更新路径解析器，使设置立即生效
