@@ -97,31 +97,32 @@ jobs:
           # 获取最新提交信息
           LATEST_COMMIT=$(git log -1 --pretty=format:"%h - %s (%an)")
 
+          # 获取当前日期时间
+          RELEASE_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
           # 创建临时的发布说明文件
-          cat > release_notes.md << 'EOF'
+          cat > release_notes.md << EOF
           # Release Notes
 
           ## Version Information
-          - **Version**: ${VERSION}
-          - **Release Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - **Version**: $VERSION
+          - **Release Date**: $RELEASE_DATE
 
           ## Latest Changes
-          ${LATEST_COMMIT}
+          $LATEST_COMMIT
 
           ## Change Log
-          ${CHANGELOG}
+          $CHANGELOG
 
           ## Installation
 
           1. Download the following files:
-             - `main.js`
-             - `manifest.json`
-             - `styles.css`
+             - main.js
+             - manifest.json
+             - styles.css
 
           2. Copy these files to your Obsidian vault's plugin directory:
-             ```
              .obsidian/plugins/auto-download-image/
-             ```
 
           3. Enable the plugin in Obsidian Settings > Community Plugins
 
@@ -135,11 +136,6 @@ jobs:
           - Confirmation dialog before processing
           - Comprehensive error handling and notifications
           EOF
-
-          # 替换变量
-          sed -i "s/\${VERSION}/$VERSION/g" release_notes.md
-          sed -i "s/\${LATEST_COMMIT}/$LATEST_COMMIT/g" release_notes.md
-          sed -i "s/\${CHANGELOG}/$CHANGELOG/g" release_notes.md
 
           # 读取发布说明
           RELEASE_BODY=$(cat release_notes.md)
