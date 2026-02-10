@@ -23,6 +23,22 @@ export class ImageUtils {
 		return cleanedPath || "assets";
 	}
 
+	// 清理文件夹名称的方法
+	// 参数: name - 要清理的文件夹名称
+	// 返回值: string - 清理后的有效文件夹名称
+	static sanitizeFolderName(name: string): string {
+		// 移除开头和结尾的空白字符
+		let cleanedName = name.trim();
+		// 替换 Windows 系统不允许的字符为下划线（保留斜杠用于路径）
+		cleanedName = cleanedName.replace(/[<>:"|?*]/g, "_");
+		// 替换连续的斜杠为单个斜杠
+		cleanedName = cleanedName.replace(/\/+/g, "/");
+		// 替换连续的反斜杠为单个反斜杠
+		cleanedName = cleanedName.replace(/\\+/g, "\\");
+		// 如果名称为空，使用默认值
+		return cleanedName || "assets";
+	}
+
 	// 获取图片文件的扩展名的方法
 	// 参数: url - 图片的 URL 地址
 	// 参数: mimeType - 图片的 MIME 类型（从响应头的 Content-Type 获取）

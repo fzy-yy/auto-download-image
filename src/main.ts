@@ -1,11 +1,18 @@
 // 导入 Obsidian 核心类型和类
-import { Editor, MarkdownView, Notice, Plugin, TFile } from "obsidian";
-// 导入设置相关的类型和类
 import {
-	AutoDownloadImageSettingTab,
+	Editor,
+	MarkdownView,
+	Notice,
+	Plugin,
+	TFile,
+} from "obsidian";
+// 导入设置相关的类型和类
+import { AutoDownloadImageSettingTab } from "./settings";
+// 导入类型定义
+import {
 	AutoDownloadImageSettings,
 	DEFAULT_SETTINGS,
-} from "./settings";
+} from "./naming-formatter";
 // 导入类型定义
 import { ImageLink, ProcessingResult } from "./types";
 // 导入确认对话框
@@ -14,21 +21,23 @@ import { ImageDownloadConfirmModal } from "./confirm-modal";
 import { ImageDetector } from "./image-detector";
 // 导入图片下载器
 import { ImageDownloader } from "./image-downloader";
-// 导入图片保存器
-import { ImageSaver } from "./image-saver";
+// 导入路径解析器
+import { PathResolver } from "./path-resolver";
+// 导入命名格式化器
+import { NamingFormatter } from "./naming-formatter";
 // 导入工具函数
 import { ImageUtils } from "./utils";
 
 // 插件主类，继承自 Obsidian 的 Plugin 基类
 export default class AutoDownloadImagePlugin extends Plugin {
-	// 插件的设置对象，存储用户配置的图片保存路径和命名格式
+	// 插件的设置对象，存储用户配置
 	settings: AutoDownloadImageSettings;
 	// 图片检测器实例
 	private imageDetector: ImageDetector;
 	// 图片下载器实例
 	private imageDownloader: ImageDownloader;
-	// 图片保存器实例
-	private imageSaver: ImageSaver;
+	// 路径解析器实例
+	private pathResolver: PathResolver;
 	// 处理状态标志，防止重复处理
 	private isProcessing: boolean = false;
 
@@ -40,9 +49,13 @@ export default class AutoDownloadImagePlugin extends Plugin {
 		// 初始化各个处理器实例
 		this.imageDetector = new ImageDetector();
 		this.imageDownloader = new ImageDownloader();
-		this.imageSaver = new ImageSaver(
+		this.pathResolver = new PathResolver(
+			this.app,
 			this.app.vault,
-			this.settings.imageSavePath,
+			this.settings.imageSaveLocationType,
+			this.settings.noteFolderName,
+			this.settings.vaultFolderName,
+			this.settings.imageLinkPathType,
 		);
 
 		// 在左侧功能区添加一个图片图标，点击时触发 downloadImages 方法
@@ -92,12 +105,19 @@ export default class AutoDownloadImagePlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	// 更新图片保存器路径的公共方法
-	// 参数: newPath - 新的图片保存路径
+	// 更新路径解析器的公共方法
+	// 参数: settings - 新的设置对象
 	// 返回值: void - 无返回值
-	updateImageSaverPath(newPath: string): void {
-		// 重新创建 ImageSaver 实例，使用新的保存路径
-		this.imageSaver = new ImageSaver(this.app.vault, newPath);
+	updatePathResolver(settings: AutoDownloadImageSettings): void {
+		// 重新创建 PathResolver 实例，使用新的设置
+		this.pathResolver = new PathResolver(
+			this.app,
+			this.app.vault,
+			settings.imageSaveLocationType,
+			settings.noteFolderName,
+			settings.vaultFolderName,
+			settings.imageLinkPathType,
+		);
 	}
 
 	// 处理当前笔记中所有网络图片的入口方法（带确认对话框）
@@ -262,24 +282,43 @@ export default class AutoDownloadImagePlugin extends Plugin {
 
 			// 根据图片 URL 和 MIME 类型获取文件扩展名
 			const ext = ImageUtils.getImageExtension(url, mimeType);
-			// 根据用户配置的命名格式和扩展名生成文件名
-			const fileName = ImageUtils.generateFileName(
-				ext,
+			// 根据用户配置的命名格式生成文件名（不含扩展名）
+			const baseFileName = NamingFormatter.formatFileName(
 				this.settings.namingFormat,
-			);
-
-			// 使用图片保存器保存图片到本地并返回相对路径
-			const localPath = await this.imageSaver.saveImageToFile(
 				noteFile,
-				arrayBuffer,
-				fileName,
 			);
+			// 组合文件名和扩展名
+			const fileName = `${baseFileName}.${ext}`;
 
-			// 返回图片的相对路径（用于替换网络链接）
-			return localPath;
+			// 使用路径解析器解析图片保存路径
+			const folderPath = await this.pathResolver.resolveFolderPath(noteFile);
+
+			// 确保目标文件夹存在
+			await this.pathResolver.ensureFolderExists(folderPath);
+
+			// 构建图片文件的完整路径：文件夹路径 + 文件名
+			const fullPath = `${folderPath}/${fileName}`;
+			// 将 ArrayBuffer 转换为 Uint8Array
+			const uint8Array = new Uint8Array(arrayBuffer);
+			// 使用 Vault API 将二进制数据写入文件，需要传入 ArrayBuffer
+			await this.app.vault.createBinary(fullPath, uint8Array.buffer);
+
+			// 根据用户设置返回绝对路径或相对路径
+			const linkPath = this.pathResolver.resolveImageLinkPath(
+				noteFile,
+				fullPath,
+			);
+			// 返回图片的路径（用于替换网络链接）
+			return linkPath;
 		} catch (error) {
 			// 捕获并记录下载或保存过程中的错误
+			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error(`下载图片失败: ${url}`, error);
+			// 如果错误信息中包含"already exists"，说明文件夹已存在，可以忽略
+			if (errorMessage.includes("already exists")) {
+				console.debug("文件夹或文件已存在，跳过");
+				return null;
+			}
 			// 返回 null 表示下载失败
 			return null;
 		}
