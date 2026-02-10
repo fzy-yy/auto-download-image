@@ -1,7 +1,5 @@
 # Auto Download Image
 
-[![License](https://img.shields.io/github/license/fzy-yy/auto-download-image)](LICENSE)
-
 [中文文档](./README_CN.md)
 
 An Obsidian plugin that automatically detects network images in the current note, downloads them to the local directory with custom naming, and replaces them with local relative paths.

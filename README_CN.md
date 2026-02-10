@@ -1,7 +1,5 @@
 # Auto Download Image
 
-[![License](https://img.shields.io/github/license/fzy-yy/auto-download-image)](LICENSE)
-
 一个用于 Obsidian 的插件，自动检测当前笔记中的网络图片，下载到本地并使用自定义格式重命名，然后替换为本地相对路径。
 
 ![show](./show.gif)
