@@ -1,9 +1,9 @@
 {
   "id": "auto-download-image",
   "name": "Auto Download Image",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "0.15.0",
-  "description": "自动检测并下载笔记中的网络图片到本地，支持自定义保存位置、命名格式和路径类型。",
+  "description": "Automatically detects and downloads online images embedded in notes to your local device",
   "author": "fzy-yy",
   "authorUrl": "https://github.com/fzy-yy",
   "isDesktopOnly": true

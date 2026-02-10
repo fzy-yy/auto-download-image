@@ -1,7 +1,7 @@
 {
   "name": "auto-download-image",
-  "version": "1.0.1",
-  "description": "自动检测并下载笔记中的网络图片到本地，支持自定义保存位置、命名格式和路径类型",
+  "version": "1.0.2",
+  "description": "Automatically detect and download online images embedded in notes to your local device, with support for customizing the save location, filename format, and path type.",
   "main": "main.js",
   "type": "module",
   "scripts": {
