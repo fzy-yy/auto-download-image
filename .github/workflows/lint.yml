@@ -1,28 +1,59 @@
-name: Node.js build
+# 代码质量检查工作流
+name: Code Quality Check
 
 on:
-    push:
-        branches: ["**"]
-    pull_request:
-        branches: ["**"]
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  lint:
+    name: ESLint Check
+    runs-on: ubuntu-latest
 
-        strategy:
-            matrix:
-                node-version: [20.x, 22.x]
-                # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        steps:
-            - uses: actions/checkout@v4
-            - name: Use Node.js ${{ matrix.node-version }}
-              uses: actions/setup-node@v4
-              with:
-                  node-version: ${{ matrix.node-version }}
-                  cache: "npm"
-            - run: npm ci
-            - run: npm run build --if-present
-            - run: npm run lint
+      # 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
+      # 安装依赖
+      - name: Install dependencies
+        run: npm ci
+
+      # 运行 ESLint
+      - name: Run ESLint
+        run: npm run lint
+
+  type-check:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # 安装依赖
+      - name: Install dependencies
+        run: npm ci
+
+      # 运行 TypeScript 类型检查
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit

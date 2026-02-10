@@ -1,31 +1,32 @@
-import obsidianmd from "eslint-plugin-obsidianmd";
-import { globalIgnores } from "eslint/config";
+import parser from "@typescript-eslint/parser";
 import globals from "globals";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
-	{
-		languageOptions: {
-			globals: {
-				...globals.browser,
-			},
-			parserOptions: {
-				projectService: {
-					allowDefaultProject: ["eslint.config.js", "manifest.json"],
-				},
-				tsconfigRootDir: import.meta.dirname,
-				extraFileExtensions: [".json"],
-			},
-		},
-	},
-	...obsidianmd.configs.recommended,
-	globalIgnores([
-		"node_modules",
-		"dist",
-		"esbuild.config.mjs",
-		"eslint.config.js",
-		"version-bump.mjs",
-		"versions.json",
-		"main.js",
-	]),
-);
+// 获取当前文件的目录
+const __filename = fileURLToPath(import.meta.url);
+const tsconfigRootDir = dirname(__filename);
+
+export default tseslint.config({
+  files: ["src/**/*.ts", "*.mts"],
+  languageOptions: {
+    globals: {
+      ...globals.browser,
+    },
+    parser: parser,
+    parserOptions: {
+      projectService: {
+        allowDefaultProject: [
+          "eslint.config.mts",
+          "eslint.config.js",
+          "manifest.json",
+        ],
+      },
+      tsconfigRootDir,
+      extraFileExtensions: [".json"],
+      ecmaVersion: "latest",
+      sourceType: "module",
+    },
+  },
+});

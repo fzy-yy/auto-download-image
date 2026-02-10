@@ -5,24 +5,33 @@
 这是一个用于 Obsidian 笔记应用的插件，主要功能是自动检测笔记中的网络图片链接，将这些图片下载到本地文件夹中，并使用相对路径替换原来的网络链接。
 
 ### 主要功能
+
 - 自动检测 Markdown 笔记中的网络图片链接（支持 `![](http://...)` 和 `![](https://...)` 格式）
 - 下载网络图片到本地（使用防反爬请求头）
-- 支持自定义图片保存路径（默认为 `assets` 文件夹）
-- 支持自定义图片命名格式（支持 `{timestamp}` 和 `{random}` 占位符）
+- 支持三种图片保存位置：
+  - 保存在笔记同级目录下的文件夹（可自定义文件夹名）
+  - 保存在库根目录下的指定文件夹（可自定义文件夹名）
+  - 与 Obsidian 附件文件夹保持一致
+- 支持自定义图片命名格式（支持 `{notename}`、`{date}`、`{time}` 占位符）
+- 支持绝对路径和相对路径（便于笔记库迁移）
 - 自动创建目标文件夹（如果不存在）
 - 下载间隔控制（每张图片间隔 1.5 秒）
 - 完善的错误处理和用户提示
 - 下载前确认对话框，显示将要处理的图片数量和列表
 - 防止重复处理的状态管理
 - 路径安全清理和验证
+- 多语言支持（中文/英文自动切换）
+- 输入验证和错误分类
 
 ### 技术栈
+
 - **语言**: TypeScript
 - **目标平台**: Obsidian (Desktop only)
 - **构建工具**: esbuild
 - **包管理器**: npm
 - **依赖**: Obsidian API
 - **开发工具**: TypeScript ESLint, EditorConfig
+- **CI/CD**: GitHub Actions
 
 ## 详细项目结构
 
@@ -30,7 +39,8 @@
 auto-download-image/
 ├── .github/
 │   └── workflows/
-│       └── lint.yml                    # GitHub Actions CI 配置，用于自动化代码检查
+│       ├── ci.yml                    # CI/CD 工作流（构建、测试、发布）
+│       └── lint.yml                  # 代码质量检查工作流
 ├── src/                                # 源代码目录
 │   ├── main.ts                         # 插件主类和核心逻辑
 │   ├── settings.ts                     # 插件设置管理和设置页面
@@ -38,11 +48,17 @@ auto-download-image/
 │   ├── confirm-modal.ts                # 确认对话框组件
 │   ├── image-detector.ts               # 图片链接检测器
 │   ├── image-downloader.ts             # 图片下载器
-│   ├── image-saver.ts                  # 图片保存器
-│   └── utils.ts                        # 工具函数集合
+│   ├── path-resolver.ts                # 路径解析器
+│   ├── naming-formatter.ts             # 命名格式化器
+│   ├── utils.ts                        # 工具函数集合
+│   ├── error-handler.ts                # 错误处理器
+│   ├── notifier.ts                     # 通知管理器
+│   └── validator.ts                    # 输入验证器
 ├── .editorconfig                       # 编辑器配置，统一代码风格
 ├── .gitignore                          # Git 忽略规则文件
 ├── .npmrc                              # npm 配置文件
+├── AGENTS.md                           # 项目文档（本文件）
+├── README.md                           # 项目说明文档
 ├── esbuild.config.mjs                  # esbuild 构建配置
 ├── eslint.config.mts                   # ESLint 代码检查配置
 ├── manifest.json                       # Obsidian 插件清单文件
@@ -62,6 +78,7 @@ auto-download-image/
 #### 定义的类型和接口
 
 ##### ImageLink 接口
+
 - **作用**: 表示笔记中检测到的单个网络图片链接
 - **属性**:
   - `url: string` - 图片的完整 URL 地址
@@ -69,6 +86,7 @@ auto-download-image/
   - `endPos: number` - 图片链接在笔记内容中的结束位置（字符偏移量）
 
 ##### ProcessingResult 接口
+
 - **作用**: 表示图片处理的结果统计
 - **属性**:
   - `successCount: number` - 成功下载的图片数量
@@ -83,10 +101,12 @@ auto-download-image/
 #### 定义的类
 
 ##### ImageDownloadConfirmModal 类
+
 - **继承**: `Modal` (Obsidian 基类)
 - **作用**: 创建和管理图片下载确认对话框
 
 ##### 类属性
+
 - `private imageLinks: ImageLink[]` - 要处理的图片链接列表
 - `private onConfirm: () => void` - 用户点击确认后的回调函数
 - `private onCancel: () => void` - 用户取消或关闭对话框时的回调函数
@@ -95,6 +115,7 @@ auto-download-image/
 ##### 类方法
 
 ###### constructor(app, imageLinks, onConfirm, onCancel?)
+
 - **参数**:
   - `app: App` - Obsidian 应用实例
   - `imageLinks: ImageLink[]` - 要处理的图片链接列表
@@ -103,6 +124,7 @@ auto-download-image/
 - **作用**: 初始化确认对话框，保存传入的参数
 
 ###### onOpen()
+
 - **返回值**: `void`
 - **作用**: 构建对话框的 UI 内容
 - **功能**:
@@ -112,6 +134,7 @@ auto-download-image/
   - 创建取消和确认按钮
 
 ###### onClose()
+
 - **返回值**: `void`
 - **作用**: 清理对话框内容并执行取消回调
 - **功能**:
@@ -127,11 +150,13 @@ auto-download-image/
 #### 定义的类
 
 ##### ImageDetector 类
+
 - **作用**: 检测 Markdown 格式中的网络图片链接
 
 ##### 类方法
 
 ###### detectNetworkImages(content)
+
 - **参数**:
   - `content: string` - 笔记的完整文本内容
 - **返回值**: `ImageLink[]` - 检测到的所有网络图片链接的数组
@@ -143,6 +168,7 @@ auto-download-image/
   - 返回 ImageLink 对象数组
 
 ##### 方法内部变量
+
 - `results: ImageLink[]` - 存储检测到的图片链接
 - `regex: RegExp` - 正则表达式，用于匹配 Markdown 图片语法
 - `match: RegExpExecArray | null` - 正则匹配结果
@@ -156,11 +182,13 @@ auto-download-image/
 #### 定义的类
 
 ##### ImageDownloader 类
+
 - **作用**: 下载网络图片并获取图片的 MIME 类型
 
 ##### 类方法
 
 ###### fetchImageData(url)
+
 - **参数**:
   - `url: string` - 要下载的图片 URL 地址
 - **返回值**: `Promise<ArrayBuffer>` - 图片的二进制数据
@@ -173,6 +201,7 @@ auto-download-image/
   - 返回 ArrayBuffer 二进制数据
 
 ###### getImageMimeType(url)
+
 - **参数**:
   - `url: string` - 图片的 URL 地址
 - **返回值**: `Promise<string>` - 图片的 MIME 类型
@@ -183,6 +212,7 @@ auto-download-image/
   - 如果失败返回空字符串
 
 ###### buildRequestHeaders(referer)
+
 - **参数**:
   - `referer: string` - HTTP 请求的 Referer 头
 - **返回值**: `Record<string, string>` - 请求头对象
@@ -194,6 +224,7 @@ auto-download-image/
   - 设置 Referer 告知服务器请求来源
 
 ###### extractReferer(url)
+
 - **参数**:
   - `url: string` - 图片的 URL 地址
 - **返回值**: `string` - HTTP 请求的 Referer 头
@@ -205,79 +236,219 @@ auto-download-image/
 
 ---
 
-### 5. image-saver.ts - 图片保存器
+### 5. path-resolver.ts - 路径解析器
 
-**文件作用**: 将下载的图片保存到本地文件系统。
+**文件作用**: 根据不同的保存位置类型解析图片保存路径。
 
 #### 定义的类
 
-##### ImageSaver 类
-- **作用**: 将图片数据保存到 Obsidian Vault 中
+##### PathResolver 类
+
+- **作用**: 解析图片保存路径，确保文件夹存在，计算相对路径
 
 ##### 类属性
+
 - `private vault: Vault` - Obsidian Vault 实例
-- `private savePath: string` - 图片保存路径
+- `private app: App` - Obsidian App 实例
+- `private saveLocationType: ImageSaveLocationType` - 图片保存位置类型
+- `private noteFolderName: string` - 笔记同级目录下的文件夹名称
+- `private vaultFolderName: string` - 库根目录下的文件夹名称
+- `private linkPathType: ImageLinkPathType` - 图片链接路径类型
 
 ##### 类方法
 
-###### constructor(vault, savePath)
-- **参数**:
-  - `vault: Vault` - Obsidian Vault 实例
-  - `savePath: string` - 图片保存路径
-- **作用**: 初始化图片保存器
+###### constructor(app, vault, saveLocationType, noteFolderName, vaultFolderName, linkPathType)
 
-###### saveImageToFile(noteFile, arrayBuffer, fileName)
+- **参数**:
+  - `app: App` - Obsidian App 实例
+  - `vault: Vault` - Obsidian Vault 实例
+  - `saveLocationType: ImageSaveLocationType` - 图片保存位置类型
+  - `noteFolderName: string` - 笔记同级目录下的文件夹名称
+  - `vaultFolderName: string` - 库根目录下的文件夹名称
+  - `linkPathType: ImageLinkPathType` - 图片链接路径类型
+- **作用**: 初始化路径解析器
+
+###### resolveFolderPath(noteFile)
+
 - **参数**:
   - `noteFile: TFile` - 当前笔记文件对象
-  - `arrayBuffer: ArrayBuffer` - 图片的二进制数据
-  - `fileName: string` - 要保存的文件名
-- **返回值**: `Promise<string>` - 图片的相对路径
-- **作用**: 保存图片到本地文件
+- **返回值**: `Promise<string>` - 图片保存的文件夹路径
+- **作用**: 根据保存位置类型解析文件夹路径
 - **功能**:
-  - 获取笔记文件所在的目录对象
-  - 构建文件夹的完整路径
-  - 确保目标文件夹存在
-  - 构建图片文件的完整路径
-  - 将 ArrayBuffer 转换为 Uint8Array
-  - 使用 Vault API 保存二进制文件
-  - 返回图片的相对路径
+  - 根据配置选择不同的解析方式
+  - 支持三种保存位置类型
+  - 返回文件夹路径
+
+###### resolveNoteFolderPath(noteFile)
+
+- **参数**:
+  - `noteFile: TFile` - 当前笔记文件对象
+- **返回值**: `Promise<string>` - 文件夹路径
+- **作用**: 解析笔记同级目录下的文件夹路径
+- **功能**:
+  - 获取笔记文件所在目录
+  - 构建文件夹路径
+  - 返回完整路径
+
+###### resolveVaultFolderPath()
+
+- **返回值**: `Promise<string>` - 文件夹路径
+- **作用**: 解析库根目录下的文件夹路径
+- **功能**:
+  - 直接返回库根目录下的文件夹名称
+
+###### resolveObsidianAttachmentPath()
+
+- **返回值**: `Promise<string>` - 文件夹路径
+- **作用**: 解析 Obsidian 附件文件夹路径
+- **功能**:
+  - 读取 Obsidian 配置
+  - 获取附件文件夹路径
+  - 处理特殊情况（如 "/" 表示笔记同级目录）
+  - 返回文件夹路径
 
 ###### ensureFolderExists(folderPath)
+
 - **参数**:
   - `folderPath: string` - 文件夹的完整路径
 - **返回值**: `Promise<void>`
-- **作用**: 确保文件夹存在，不存在则创建
+- **作用**: 确保文件夹存在
 - **功能**:
   - 检查文件夹是否已存在
-  - 如果不存在，创建文件夹
-  - 捕获并处理创建失败的情况
+  - 如果不存在则创建
+  - 处理竞态条件和并发创建
+  - 完善的错误处理
+
+###### resolveImageLinkPath(noteFile, imagePath)
+
+- **参数**:
+  - `noteFile: TFile` - 当前笔记文件对象
+  - `imagePath: string` - 图片文件的完整路径
+- **返回值**: `string` - 图片链接路径（绝对路径或相对路径）
+- **作用**: 解析图片链接路径
+- **功能**:
+  - 根据配置选择绝对路径或相对路径
+  - 计算相对路径层级
+  - 处理不同层级的目录关系
 
 ---
 
-### 6. utils.ts - 工具函数集合
+### 6. naming-formatter.ts - 命名格式化器
 
-**文件作用**: 提供各种辅助工具函数。
+**文件作用**: 定义类型、默认设置和提供文件名格式化功能。
+
+#### 定义的枚举和接口
+
+##### ImageSaveLocationType 枚举
+
+- `NOTE_FOLDER` - 保存在笔记同级目录下的文件夹
+- `VAULT_FOLDER` - 保存在库根目录下的指定文件夹
+- `OBSIDIAN_ATTACHMENT` - 与 Obsidian 附件文件夹保持一致
+
+##### ImageLinkPathType 枚举
+
+- `ABSOLUTE` - 使用绝对路径
+- `RELATIVE` - 使用相对路径
+
+##### AutoDownloadImageSettings 接口
+
+- `imageSaveLocationType: ImageSaveLocationType` - 图片保存位置类型
+- `noteFolderName: string` - 笔记同级目录下的文件夹名称
+- `vaultFolderName: string` - 库根目录下的文件夹名称
+- `namingFormat: string` - 图片命名格式
+- `imageLinkPathType: ImageLinkPathType` - 图片链接路径类型
+
+##### DEFAULT_SETTINGS 常量
+
+- 默认配置对象，包含所有设置的默认值
+
+#### 定义的类
+
+##### NamingFormatter 类
+
+- **作用**: 格式化图片文件名
+
+##### 类方法
+
+###### formatFileName(format, noteFile)
+
+- **参数**:
+  - `format: string` - 命名格式字符串
+  - `noteFile: TFile` - 当前笔记文件对象
+- **返回值**: `string` - 格式化后的文件名（不含扩展名）
+- **作用**: 根据用户配置生成文件名
+- **功能**:
+  - 获取当前日期时间
+  - 替换占位符为实际值
+  - 清理文件名中的非法字符
+  - 返回格式化后的文件名
+
+##### 类方法（私有）
+
+###### getNoteName(noteFile)
+
+- **参数**: `noteFile: TFile` - 笔记文件对象
+- **返回值**: `string` - 笔记名称
+- **作用**: 获取不含扩展名的文件名
+
+###### getFormattedDate(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 格式化的日期字符串（YYYY-MM-DD）
+- **作用**: 格式化日期
+
+###### getFormattedTime(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 格式化的时间字符串（HH-MM-SS）
+- **作用**: 格式化时间
+
+###### getPaddedMonth(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 补零的月份字符串（01-12）
+- **作用**: 获取补零月份
+
+###### getPaddedDay(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 补零的日期字符串（01-31）
+- **作用**: 获取补零日期
+
+###### getPaddedHour(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 补零的小时字符串（00-23）
+- **作用**: 获取补零小时
+
+###### getPaddedMinute(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 补零的分钟字符串（00-59）
+- **作用**: 获取补零分钟
+
+###### getPaddedSecond(date)
+
+- **参数**: `date: Date` - 日期对象
+- **返回值**: `string` - 补零的秒数字符串（00-59）
+- **作用**: 获取补零秒数
+
+---
+
+### 7. utils.ts - 工具函数集合
+
+**文件作用**: 提供各种辅助工具方法。
 
 #### 定义的类
 
 ##### ImageUtils 类
+
 - **作用**: 提供静态工具方法
 
 ##### 类方法
 
-###### sanitizePath(path)
-- **参数**:
-  - `path: string` - 要清理的路径
-- **返回值**: `string` - 清理后的有效路径
-- **作用**: 清理和验证路径，防止路径遍历攻击
-- **功能**:
-  - 移除路径开头和结尾的空白字符
-  - 替换 Windows 系统不允许的字符为下划线
-  - 替换连续的斜杠为单个斜杠
-  - 移除路径开头的 . 或 ..，防止路径遍历攻击
-  - 如果路径为空，使用默认值 "assets"
-
 ###### getImageExtension(url, mimeType)
+
 - **参数**:
   - `url: string` - 图片的 URL 地址
   - `mimeType: string` - 图片的 MIME 类型
@@ -290,22 +461,8 @@ auto-download-image/
   - 如果都无法确定，默认返回 "png" 扩展名
   - 将 "jpeg" 统一转换为 "jpg"
 
-###### generateFileName(ext, namingFormat)
-- **参数**:
-  - `ext: string` - 图片文件的扩展名
-  - `namingFormat: string` - 命名格式字符串
-- **返回值**: `string` - 生成的完整文件名（包括扩展名）
-- **作用**: 根据用户配置生成文件名
-- **功能**:
-  - 获取当前时间戳（毫秒）
-  - 生成一个 10 位的随机字符串（使用 36 进制）
-  - 使用用户配置的命名格式，替换占位符为实际值
-  - 替换 {timestamp} 为时间戳
-  - 替换 {random} 为随机字符串
-  - 清理文件名中的非法字符
-  - 返回完整的文件名（基础名称 + 扩展名）
-
 ###### delay(ms)
+
 - **参数**:
   - `ms: number` - 延迟的毫秒数
 - **返回值**: `Promise<void>` - 一个 Promise 对象，在指定时间后 resolve
@@ -315,6 +472,7 @@ auto-download-image/
   - 在指定时间后调用 resolve
 
 ###### replaceImageLink(editor, imageLink, localPath)
+
 - **参数**:
   - `editor: Editor` - Obsidian 的编辑器实例
   - `imageLink: ImageLink` - 要替换的图片链接对象
@@ -326,239 +484,578 @@ auto-download-image/
   - 将字符偏移量转换为编辑器的位置对象（结束位置）
   - 使用编辑器的 replaceRange 方法替换网络链接为本地相对路径
 
+###### sanitizePath(path)（已迁移到 Validator，保留此方法以保持向后兼容）
+
+- **参数**: `path: string` - 要清理的路径
+- **返回值**: `string` - 清理后的有效路径
+- **作用**: 清理和验证路径，防止路径遍历攻击
+
+###### sanitizeFolderName(name)（已迁移到 Validator，保留此方法以保持向后兼容）
+
+- **参数**: `name: string` - 要清理的文件夹名称
+- **返回值**: `string` - 清理后的有效文件夹名称
+- **作用**: 清理文件夹名称
+
 ---
 
-### 7. settings.ts - 设置管理和设置页面
+### 8. error-handler.ts - 错误处理器
 
-**文件作用**: 管理插件设置并提供设置页面 UI。
+**文件作用**: 统一的错误处理、日志记录和用户提示管理。
 
-#### 定义的接口和常量
+#### 定义的枚举和类
 
-##### AutoDownloadImageSettings 接口
-- **作用**: 定义插件设置的数据结构
+##### ErrorType 枚举
+
+- `NETWORK_ERROR` - 网络请求错误
+- `FILE_ERROR` - 文件操作错误
+- `PERMISSION_ERROR` - 权限错误
+- `URL_ERROR` - URL 格式错误
+- `UNKNOWN_ERROR` - 其他未知错误
+
+##### PluginError 类
+
+- **作用**: 自定义错误类，包含详细的错误信息
 - **属性**:
-  - `imageSavePath: string` - 图片保存路径，相对于笔记所在目录（如 "assets" 或 "images"）
-  - `namingFormat: string` - 图片命名格式，支持占位符（如 "{timestamp}" 或 "{random}"）
+  - `errorType: ErrorType` - 错误类型
+  - `originalError?: Error` - 原始错误对象
+  - `context?: Record<string, unknown>` - 错误上下文信息
 
-##### DEFAULT_SETTINGS 常量
-- **类型**: `AutoDownloadImageSettings`
-- **作用**: 定义默认设置，在用户未配置时使用
-- **值**:
-  - `imageSavePath: "assets"` - 默认保存到 "assets" 文件夹
-  - `namingFormat: "{timestamp}"` - 默认使用时间戳命名
+##### ErrorHandler 类
 
-#### 定义的类
-
-##### AutoDownloadImageSettingTab 类
-- **继承**: `PluginSettingTab` (Obsidian 基类)
-- **作用**: 在 Obsidian 的设置页面中显示和管理插件的配置选项
-
-##### 类属性
-- `plugin: AutoDownloadImagePlugin` - 插件实例的引用，用于访问和修改设置
+- **作用**: 处理错误并显示用户友好的提示
 
 ##### 类方法
 
-###### constructor(app, plugin)
-- **参数**:
-  - `app: App` - Obsidian 应用实例
-  - `plugin: AutoDownloadImagePlugin` - 插件实例
-- **作用**: 初始化设置选项卡
+###### handle(error, showMessage)
 
-###### display()
+- **参数**:
+  - `error: unknown` - 错误对象
+  - `showMessage: boolean` - 是否显示通知消息
 - **返回值**: `void`
-- **作用**: 显示设置页面的方法，当用户打开插件设置时调用
+- **作用**: 处理错误并显示用户友好的提示
 - **功能**:
-  - 清空容器元素
-  - 使用 Setting 组件创建标题
-  - 创建图片保存路径设置项
-  - 创建图片命名格式设置项
-  - 绑定事件处理器，监听设置变更
+  - 标准化错误对象
+  - 在控制台打印详细的错误日志
+  - 显示用户友好的错误通知
+
+###### normalizeError(error)
+
+- **参数**:
+  - `error: unknown` - 原始错误对象
+- **返回值**: `PluginError` - 标准化的错误对象
+- **作用**: 标准化错误对象
+
+###### determineErrorType(message)
+
+- **参数**:
+  - `message: string` - 错误消息
+- **返回值**: `ErrorType` - 错误类型
+- **作用**: 根据错误消息确定错误类型
+
+###### logError(error)
+
+- **参数**:
+  - `error: PluginError` - 错误对象
+- **返回值**: `void`
+- **作用**: 在控制台打印错误日志
+
+###### showNotice(error)
+
+- **参数**:
+  - `error: PluginError` - 错误对象
+- **返回值**: `void`
+- **作用**: 显示用户友好的错误通知
+
+###### wrap(operation, context, showMessage)
+
+- **参数**:
+  - `operation: () => Promise<T>` - 异步操作函数
+  - `context?: string` - 操作上下文
+  - `showMessage: boolean` - 是否显示错误通知
+- **返回值**: `Promise<T | null>` - 操作结果
+- **作用**: 包装异步操作，自动处理错误
 
 ---
 
-### 8. main.ts - 插件主类
+### 9. notifier.ts - 通知管理器
+
+**文件作用**: 统一管理所有用户通知，提供分级通知功能。
+
+#### 定义的枚举和类
+
+##### NoticeLevel 枚举
+
+- `INFO` - 信息级别
+- `SUCCESS` - 成功级别
+- `WARNING` - 警告级别
+- `ERROR` - 错误级别
+
+##### Notifier 类
+
+- **作用**: 显示各种用户通知
+
+##### 类方法
+
+###### info(message, duration)
+
+- **参数**:
+  - `message: string` - 通知消息
+  - `duration: number` - 显示时长（毫秒）
+- **作用**: 显示信息通知
+
+###### success(message, duration)
+
+- **参数**:
+  - `message: string` - 通知消息
+  - `duration: number` - 显示时长（毫秒）
+- **作用**: 显示成功通知
+
+###### warning(message, duration)
+
+- **参数**:
+  - `message: string` - 通知消息
+  - `duration: number` - 显示时长（毫秒）
+- **作用**: 显示警告通知
+
+###### error(message, duration)
+
+- **参数**:
+  - `message: string` - 通知消息
+  - `duration: number` - 显示时长（毫秒）
+- **作用**: 显示错误通知
+
+###### showProgress(total, current, description)
+
+- **参数**:
+  - `total: number` - 总数量
+  - `current: number` - 当前数量
+  - `description: string` - 操作描述
+- **作用**: 显示处理进度通知
+
+###### showProcessingResult(successCount, failureCount)
+
+- **参数**:
+  - `successCount: number` - 成功数量
+  - `failureCount: number` - 失败数量
+- **作用**: 显示处理完成通知
+
+###### showProcessing(count)
+
+- **参数**:
+  - `count: number` - 处理的数量
+- **作用**: 显示正在处理的通知
+
+###### showNoImagesFound()
+
+- **作用**: 显示未找到图片的通知
+
+###### showAlreadyProcessing()
+
+- **作用**: 显示正在处理的通知（防止重复处理）
+
+###### showCannotGetFile()
+
+- **作用**: 显示无法获取文件的通知
+
+###### showNotInMarkdownView()
+
+- **作用**: 显示不在 Markdown 视图的通知
+
+###### showDownloadFailure(url)
+
+- **参数**:
+  - `url: string` - 失败的图片 URL
+- **作用**: 显示下载失败的通知
+
+###### showCreateFolderFailure()
+
+- **作用**: 显示创建文件夹失败的通知
+
+---
+
+### 10. validator.ts - 验证器
+
+**文件作用**: 统一的输入验证和安全检查。
+
+#### 定义的接口
+
+##### ValidationResult 接口
+
+- `valid: boolean` - 是否验证通过
+- `errorMessage?: string` - 错误消息
+
+#### 定义的类
+
+##### Validator 类
+
+- **作用**: 提供各种输入验证和安全检查
+
+##### 类方法
+
+###### validateUrl(url)
+
+- **参数**:
+  - `url: string` - 要验证的 URL
+- **返回值**: `ValidationResult` - 验证结果
+- **作用**: 验证 URL 格式
+
+###### validateFileName(fileName)
+
+- **参数**:
+  - `fileName: string` - 要验证的文件名
+- **返回值**: `ValidationResult` - 验证结果
+- **作用**: 验证文件名
+
+###### validateFolderName(folderName)
+
+- **参数**:
+  - `folderName: string` - 要验证的文件夹名称
+- **返回值**: `ValidationResult` - 验证结果
+- **作用**: 验证文件夹名称
+
+###### validatePathSafety(path)
+
+- **参数**:
+  - `path: string` - 要验证的路径
+- **返回值**: `ValidationResult` - 验证结果
+- **作用**: 验证路径安全性
+
+###### validateNoteFile(file)
+
+- **参数**:
+  - `file: TFile | null` - 要验证的文件对象
+- **返回值**: `ValidationResult` - 验证结果
+- **作用**: 验证笔记文件
+
+###### validateNamingFormat(format)
+
+- **参数**:
+  - `format: string` - 命名格式字符串
+- **返回值**: `ValidationResult` - 验证结果
+- **作用**: 验证命名格式
+
+###### sanitizePath(path)
+
+- **参数**:
+  - `path: string` - 要清理的路径
+- **返回值**: `string` - 清理后的安全路径
+- **作用**: 清理和验证路径
+
+###### sanitizeFolderName(name)
+
+- **参数**:
+  - `name: string` - 要清理的文件夹名称
+- **返回值**: `string` - 清理后的安全文件夹名称
+- **作用**: 清理文件夹名称
+
+---
+
+### 11. main.ts - 插件主类
 
 **文件作用**: 插件的核心逻辑，协调各个模块的工作。
 
 #### 定义的类
 
 ##### AutoDownloadImagePlugin 类
+
 - **继承**: `Plugin` (Obsidian 基类)
 - **作用**: 插件主类，管理插件生命周期和核心功能
 
 ##### 类属性
+
 - `settings: AutoDownloadImageSettings` - 插件的设置对象，存储用户配置
 - `private imageDetector: ImageDetector` - 图片检测器实例
 - `private imageDownloader: ImageDownloader` - 图片下载器实例
-- `private imageSaver: ImageSaver` - 图片保存器实例
-- `private isProcessing: boolean` - 处理状态标志，防止重复处理（默认为 false）
+- `private pathResolver: PathResolver` - 路径解析器实例
+- `private isProcessing: boolean` - 处理状态标志，防止重复处理
 
 ##### 类方法
 
 ###### onload()
+
 - **返回值**: `Promise<void>`
-- **作用**: 插件加载时的初始化方法，在插件启用时自动调用
+- **作用**: 插件加载时的初始化方法
 - **功能**:
-  - 从磁盘加载用户的设置配置
+  - 加载用户设置
   - 初始化各个处理器实例
-  - 在左侧功能区添加图片图标
-  - 注册命令到命令面板
-  - 添加设置选项卡到设置页面
+  - 添加功能区图标
+  - 注册命令
+  - 添加设置选项卡
+  - 错误处理
 
 ###### onunload()
+
 - **返回值**: `void`
-- **作用**: 插件卸载时的清理方法，在插件禁用时自动调用
-- **功能**: 当前插件无需特殊的清理操作
+- **作用**: 插件卸载时的清理方法
 
 ###### loadSettings()
+
 - **返回值**: `Promise<void>`
 - **作用**: 从磁盘加载插件设置
 - **功能**:
-  - 使用 Object.assign 合并默认设置和用户保存的设置
-  - 确保设置对象总是有完整的配置
+  - 合并默认设置和用户设置
+  - 验证设置有效性
+  - 错误处理
+
+###### validateSettings()
+
+- **返回值**: `void`
+- **作用**: 验证设置的有效性
 
 ###### saveSettings()
+
 - **返回值**: `Promise<void>`
 - **作用**: 保存插件设置到磁盘
-- **功能**: 将当前的设置对象保存到磁盘
 
-###### updateImageSaverPath(newPath)
-- **参数**:
-  - `newPath: string` - 新的图片保存路径
+###### updatePathResolver(settings)
+
+- **参数**: `settings: AutoDownloadImageSettings` - 新的设置对象
 - **返回值**: `void`
-- **作用**: 更新图片保存器路径的公共方法
-- **功能**: 重新创建 ImageSaver 实例，使用新的保存路径
+- **作用**: 更新路径解析器
 
 ###### processCurrentNoteWithConfirmation(editor)
+
 - **参数**:
   - `editor: Editor` - Obsidian 的编辑器实例
 - **返回值**: `Promise<void>`
-- **作用**: 处理当前笔记中所有网络图片的入口方法（带确认对话框）
+- **作用**: 处理当前笔记中所有网络图片（带确认对话框）
 - **功能**:
-  - 检查是否正在处理中，防止重复处理
-  - 获取编辑器中的完整笔记内容
-  - 使用图片检测器检测笔记中的所有网络图片链接
-  - 如果没有检测到图片，显示通知并返回
-  - 获取当前活动文件
-  - 如果无法获取当前文件，显示错误通知并返回
-  - 创建并显示确认对话框
+  - 检查处理状态
+  - 检测网络图片
+  - 验证文件有效性
+  - 显示确认对话框
 
 ###### processImageLinks(editor, imageLinks, noteFile)
+
 - **参数**:
   - `editor: Editor` - Obsidian 的编辑器实例
   - `imageLinks: ImageLink[]` - 要处理的图片链接列表
   - `noteFile: TFile` - 当前笔记文件对象
 - **返回值**: `Promise<void>`
-- **作用**: 处理图片链接的核心方法
+- **作用**: 处理图片链接
 - **功能**:
-  - 设置处理状态为正在处理
-  - 显示通知，告知用户开始处理
-  - 处理所有图片链接并获取结果
-  - 显示处理完成的通知
-  - 捕获并记录处理过程中的错误
-  - 无论成功或失败，都要重置处理状态
+  - 设置处理状态
+  - 显示开始通知
+  - 调用下载替换方法
+  - 显示结果通知
+  - 错误处理
 
 ###### downloadAndReplaceImages(editor, imageLinks, noteFile)
+
 - **参数**:
   - `editor: Editor` - Obsidian 的编辑器实例
   - `imageLinks: ImageLink[]` - 要处理的图片链接列表
   - `noteFile: TFile` - 当前笔记文件对象
-- **返回值**: `Promise<ProcessingResult>` - 处理结果，包含成功和失败的数量
-- **作用**: 下载并替换所有图片的方法
+- **返回值**: `Promise<ProcessingResult>` - 处理结果
+- **作用**: 下载并替换所有图片
 - **功能**:
-  - 初始化成功和失败的计数器
-  - 从后往前遍历所有图片链接，避免前面替换导致后面位置偏移
-  - 延迟 1.5 秒，避免频繁请求被反爬机制拦截
-  - 下载图片并保存到本地
-  - 如果下载成功，替换笔记中的网络链接为本地相对路径
-  - 捕获并记录单个图片下载时的错误
-  - 返回处理结果
+  - 从后往前处理图片链接
+  - 验证 URL 有效性
+  - 延迟控制
+  - 错误处理
 
 ###### downloadAndSaveImage(url, noteFile)
+
 - **参数**:
-  - `url: string` - 要下载的图片 URL 地址
+  - `url: string` - 图片 URL 地址
   - `noteFile: TFile` - 当前笔记文件对象
-- **返回值**: `Promise<string | null>` - 成功时返回图片的相对路径，失败时返回 null
-- **作用**: 下载网络图片并保存到本地的异步方法
+- **返回值**: `Promise<string | null>` - 图片路径或 null
+- **作用**: 下载网络图片并保存到本地
 - **功能**:
-  - 使用图片下载器获取图片的二进制数据
-  - 使用图片下载器获取图片的 MIME 类型
-  - 根据图片 URL 和 MIME 类型获取文件扩展名
-  - 根据用户配置的命名格式和扩展名生成文件名
-  - 使用图片保存器保存图片到本地并返回相对路径
-  - 捕获并记录下载或保存过程中的错误
+  - 验证 URL
+  - 下载图片数据
+  - 验证二进制数据
+  - 获取 MIME 类型
+  - 生成文件名
+  - 验证文件名和路径
+  - 保存图片
 
 ###### downloadImages()
+
 - **返回值**: `void`
-- **作用**: 下载图片的入口方法，通过功能区图标调用
+- **作用**: 下载图片的入口方法
+
+---
+
+### 12. settings.ts - 设置管理
+
+**文件作用**: 管理插件设置并提供设置页面 UI。
+
+#### 定义的枚举和常量
+
+##### Language 类型
+
+- `zh` - 中文
+- `en` - 英文
+
+##### Translations 接口
+
+- 包含所有设置项的翻译文本
+
+##### zhTranslations 常量
+
+- 所有设置项的中文翻译
+
+##### enTranslations 常量
+
+- 所有设置项的英文翻译
+
+#### 定义的类
+
+##### AutoDownloadImageSettingTab 类
+
+- **继承**: `PluginSettingTab`
+- **作用**: 设置选项卡
+
+##### 类属性
+
+- `plugin: AutoDownloadImagePlugin` - 插件实例
+- `private currentLanguage: Language` - 当前语言
+
+##### 类方法
+
+###### constructor(app, plugin)
+
+- **参数**:
+  - `app: App` - Obsidian 应用实例
+  - `plugin: AutoDownloadImagePlugin` - 插件实例
+- **作用**: 初始化设置选项卡
 - **功能**:
-  - 获取当前活动的 Markdown 视图
-  - 检查是否成功获取到视图以及编辑器
-  - 调用处理当前笔记的方法（带确认对话框）
-  - 如果不在 Markdown 视图中，显示提示通知
+  - 调用父类构造函数
+  - 保存插件实例
+  - 检测语言
+
+###### detectLanguage()
+
+- **返回值**: `Language`
+- **作用**: 检测当前语言
+- **功能**:
+  - 使用 getLanguage() 函数
+  - 判断是否为中文
+
+###### getTranslations()
+
+- **返回值**: `Translations`
+- **作用**: 获取翻译文本
+
+###### display()
+
+- **返回值**: `void`
+- **作用**: 显示设置页面
+- **功能**:
+  - 清空容器
+  - 创建标题
+  - 创建各设置项
+
+###### createImageSaveLocationSetting(containerEl, t)
+
+- **参数**:
+  - `containerEl: HTMLElement` - 容器元素
+  - `t: Translations` - 翻译文本
+- **作用**: 创建图片保存位置设置项
+
+###### createImageLinkPathTypeSetting(containerEl, t)
+
+- **参数**:
+  - `containerEl: HTMLElement` - 容器元素
+  - `t: Translations` - 翻译文本
+- **作用**: 创建图片链接路径类型设置项
+
+###### createNamingFormatSetting(containerEl, t)
+
+- **参数**:
+  - `containerEl: HTMLElement` - 容器元素
+  - `t: Translations` - 翻译文本
+- **作用**: 创建图片命名格式设置项
 
 ---
 
 ## 核心实现说明
 
 ### 图片检测
+
 使用正则表达式 `/!\[([^\]]*)?\]\((https?:\/\/[^)]+)\)/g` 检测 Markdown 中的网络图片链接。
 
 ### 下载流程
+
 1. 使用 `requestUrl` API 下载图片
 2. 设置防反爬请求头（User-Agent、Accept、Referer 等）
 3. 从响应中获取图片二进制数据
 4. 根据 URL 或 MIME 类型确定文件扩展名
 5. 根据命名格式生成文件名
-6. 在笔记所在目录下创建目标文件夹（如 `assets`）
+6. 在目标位置创建文件夹
 7. 保存图片文件
 
 ### 替换策略
+
 - **从后往前处理**：为了避免前面替换导致后面的位置偏移，采用从后往前的顺序处理图片链接
 - 使用 `editor.offsetToPos()` 将偏移量转换为编辑器位置
 - 使用 `editor.replaceRange()` 替换原始链接
 
 ### 防反爬措施
+
 - User-Agent: 模拟 Chrome 浏览器
 - Accept: 支持多种图片格式
-- Accept-Language: 中文支持
+- Accept-Language: 支持中文
 - Referer: 动态设置来源域名
 - 下载间隔：每张图片间隔 1.5 秒
 
 ### 状态管理
+
 - 使用 `isProcessing` 标志防止重复处理
 - 在确认对话框中添加取消回调，确保状态一致性
 - 使用 `finally` 块确保无论成功或失败都能重置状态
 
 ### 安全措施
+
 - 路径清理：使用 `sanitizePath()` 方法移除非法字符和防止路径遍历
 - 文件名清理：移除 Windows 系统不允许的字符
-- 文件名冲突：使用 10 位随机字符串大幅降低冲突概率
+- 输入验证：所有用户输入都经过验证
+- 文件名冲突：使用时间戳和随机字符串避免冲突
+
+### 错误处理
+
+- **错误分类**：网络错误、文件错误、权限错误、URL 错误、未知错误
+- **错误日志**：在控制台打印详细的错误信息（类型、消息、堆栈、上下文）
+- **用户提示**：显示简洁易懂的错误消息
+- **错误包装**：使用 `wrap()` 方法自动处理异步操作的错误
+
+### 多语言支持
+
+- 使用 Obsidian 的 `getLanguage()` 函数检测语言
+- 支持中文（简体和繁体）和英文
+- 翻译文本存储在 `zhTranslations` 和 `enTranslations` 常量中
+- 动态切换界面语言
 
 ## 构建和运行
 
 ### 前置要求
-- Node.js (建议使用 LTS 版本)
+
+- Node.js 18.x 或更高版本
 - npm
 
 ### 开发流程
 
 1. **安装依赖**
+
    ```bash
    npm install
    ```
 
 2. **开发模式（监听文件变化自动构建）**
+
    ```bash
    npm run dev
    ```
 
 3. **生产构建**
+
    ```bash
    npm run build
    ```
 
 4. **运行 Lint 检查**
+
    ```bash
    npm run lint
    ```
@@ -577,12 +1074,14 @@ auto-download-image/
 ## 开发约定
 
 ### 代码风格
+
 - 使用 **Tab** 缩进，缩进大小为 4
 - 严格遵循 TypeScript 严格模式
 - 使用 ES6+ 语法
 - 所有异步操作使用 `async/await`
 
 ### 命名约定
+
 - 类名：PascalCase
 - 方法名：camelCase
 - 私有方法：使用 `private` 关键字
@@ -590,9 +1089,18 @@ auto-download-image/
 - 接口：PascalCase
 
 ### 错误处理
+
 - 所有异步操作必须包含 try-catch
-- 使用 `Notice` 向用户显示重要信息
+- 使用 `ErrorHandler` 类处理错误
+- 使用 `Notifier` 类显示用户通知
 - 使用 `console.error` 记录错误详情
+
+### 验证和安全
+
+- 所有外部输入必须经过 `Validator` 类验证
+- 使用 `sanitizePath()` 和 `sanitizeFolderName()` 清理路径
+- 防止路径遍历攻击
+- 防止重复处理
 
 ## 已知问题和注意事项
 
@@ -626,3 +1134,6 @@ auto-download-image/
 2. 添加适当的类型注解
 3. 包含必要的错误处理
 4. 遵循现有的代码风格和命名约定
+5. 使用 `Validator` 类验证所有输入
+6. 使用 `ErrorHandler` 类处理错误
+7. 使用 `Notifier` 类显示通知

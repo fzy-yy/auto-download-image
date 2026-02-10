@@ -1,11 +1,11 @@
 {
-	"id": "auto-download-image",
-	"name": "Auto Download Image",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "自动检测并下载笔记中的网络图片到本地并重命名",
-	"author": "fzy-yy",
-	"authorUrl": "https://github.com/fzy-yy",
-	"fundingUrl": "https://github.com/fzy-yy",
-	"isDesktopOnly": true
+  "id": "auto-download-image",
+  "name": "Auto Download Image",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "自动检测并下载笔记中的网络图片到本地，支持自定义保存位置、命名格式和路径类型。支持三种保存位置：笔记同级目录、库根目录、Obsidian附件文件夹。支持绝对路径和相对路径。支持多种命名占位符。",
+  "author": "fzy-yy",
+  "authorUrl": "https://github.com/fzy-yy",
+  "fundingUrl": "https://github.com/fzy-yy",
+  "isDesktopOnly": true
 }
